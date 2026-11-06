@@ -1,0 +1,1411 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AER VN - Demo Version</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
+            -webkit-tap-highlight-color: transparent;
+            outline: none;
+        }
+        html, body {
+            width: 100%;
+            height: 100%;
+            min-height: 100%;
+            overflow: hidden;
+            overscroll-behavior: none;
+            touch-action: manipulation;
+            background-color: #050b27;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #fff;
+        }
+
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            height: 100dvh;
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            overflow: hidden;
+        }
+
+        /* Canvas Partikel Keren di Menu Utama */
+        #particle-canvas {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1;
+            display: none;
+        }
+        #main-menu-screen.active ~ #particle-canvas,
+        #main-menu-screen.active + #particle-canvas,
+        #main-menu-screen.active #particle-canvas {
+            display: block;
+        }
+        
+        #scene-fade { position:absolute; inset:0; z-index:6; background:#080610; opacity:0; pointer-events:none; transition:opacity .38s ease; }
+        #scene-fade.active { opacity:1; }
+
+        .screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+        }
+        .screen.active {
+            display: flex;
+        }
+
+        /* Tampilan Tap to Play dengan Barisan Karakter di Bawah */
+        #tap-to-play-screen {
+            background: center/cover no-repeat url("assets/bg_tap_to_play.png");
+            cursor: pointer;
+            justify-content: flex-end;
+            padding-bottom: 25px;
+        }
+
+        .characters-row {
+            position: absolute;
+            bottom: 22%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 95%;
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+            gap: 1.2%;
+            z-index: 2;
+        }
+        .characters-row img {
+            height: clamp(28vh, 42vh, 58vh);
+            max-width: 15%;
+            object-fit: contain;
+            object-position: bottom;
+            filter: drop-shadow(0 8px 14px rgba(0,0,0,.6));
+            cursor: pointer;
+            transition: filter 0.3s ease;
+            animation: charFloat 3.2s ease-in-out infinite;
+        }
+        
+        .characters-row img:nth-child(1) { animation-delay: 0.0s; }
+        .characters-row img:nth-child(2) { animation-delay: 0.3s; }
+        .characters-row img:nth-child(3) { animation-delay: 0.6s; }
+        .characters-row img:nth-child(4) { animation-delay: 0.9s; }
+        .characters-row img:nth-child(5) { animation-delay: 1.2s; }
+        .characters-row img:nth-child(6) { animation-delay: 1.5s; }
+        .characters-row img:nth-child(7) { animation-delay: 1.8s; }
+
+        .characters-row img.char-bounce {
+            animation: charBoingJumpEnhanced 0.65s cubic-bezier(0.175, 0.885, 0.32, 1.35) !important;
+        }
+
+        @keyframes charFloat {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-8px); }
+        }
+
+        @keyframes charBoingJumpEnhanced {
+            0% { transform: scale(1, 1) translateY(0); filter: brightness(1) drop-shadow(0 8px 14px rgba(0,0,0,.6)); }
+            20% { transform: scale(1.22, 0.78) translateY(8px); filter: brightness(1.2) drop-shadow(0 4px 8px rgba(57,120,255,.5)); }
+            50% { transform: scale(0.85, 1.18) translateY(-45px) rotate(1deg); filter: brightness(1.3) drop-shadow(0 18px 25px rgba(113,213,255,.7)); }
+            75% { transform: scale(1.08, 0.92) translateY(-6px) rotate(-0.5deg); filter: brightness(1.1); }
+            100% { transform: scale(1, 1) translateY(0); filter: brightness(1) drop-shadow(0 8px 14px rgba(0,0,0,.6)); }
+        }
+
+        .tap-panel {
+            padding: 14px 28px;
+            border: 1px solid rgba(73,132,255,.7);
+            border-radius: 16px;
+            background: rgba(3,9,32,.75);
+            box-shadow: 0 0 25px rgba(43,105,255,.35);
+            text-align: center;
+            z-index: 5;
+            backdrop-filter: blur(4px);
+        }
+        .tap-panel h1 {
+            margin: 0 0 6px;
+            font-size: clamp(22px, 4vw, 36px);
+            letter-spacing: .15em;
+            color: #eef4ff;
+        }
+        .tap-panel p {
+            margin: 0;
+            font-size: clamp(12px, 2vw, 14px);
+            color: #c6dcff;
+            letter-spacing: .2em;
+            animation: pulse 1.4s infinite;
+        }
+
+        #main-menu-screen {
+            background-image: linear-gradient(90deg, rgba(2,8,30,.22), rgba(2,8,30,.55)), url("assets/bg/background.png");
+            background-size: cover;
+            background-position: center;
+            align-items: stretch;
+            justify-content: flex-start;
+            padding: clamp(14px,3vw,34px);
+            overflow: auto;
+        }
+
+        .home-inner {
+            position: relative;
+            z-index: 5;
+            width: min(1100px, 100%);
+            margin: auto;
+            display: flex;
+            flex-direction: column;
+            gap: clamp(18px, 3vh, 30px);
+        }
+        
+        .welcome {
+            text-align: center;
+            font-size: clamp(38px,8vw,72px);
+            font-weight: 900;
+            letter-spacing: .12em;
+            margin: 0;
+            text-shadow: 0 0 18px #347bff, 0 0 38px #163fba;
+            color: #eef4ff;
+        }
+        .sub-title {
+            text-align: center;
+            color: #a9c9ff;
+            font-size: 12px;
+            letter-spacing: .3em;
+            margin-top: -12px;
+        }
+
+        .episode-row {
+            display: flex;
+            gap: 16px;
+            overflow-x: auto;
+            padding: 12px 4px 20px;
+            justify-content: center;
+        }
+        .episode-card {
+            flex: 0 0 clamp(175px,28vw,245px);
+            border: 1px solid rgba(91,151,255,.55);
+            border-radius: 14px;
+            overflow: hidden;
+            background: linear-gradient(145deg, rgba(14,35,91,.94), rgba(3,9,32,.96));
+            box-shadow: 0 8px 24px rgba(0,0,0,.28);
+            transition: transform .18s;
+            cursor: pointer;
+        }
+        .episode-card:active {
+            transform: scale(.97);
+        }
+        .episode-card img {
+            display: block;
+            width: 100%;
+            aspect-ratio: 3/4;
+            object-fit: cover;
+            background: rgba(15,32,76,.7);
+            pointer-events: none;
+        }
+        .episode-card button {
+            display: block;
+            width: 100%;
+            border: 0;
+            border-top: 1px solid rgba(91,151,255,.35);
+            background: rgba(5,13,42,.94);
+            padding: 13px 8px;
+            font-weight: 700;
+            letter-spacing: .08em;
+            color: #fff;
+            pointer-events: none;
+        }
+
+        .option-area {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px;
+        }
+        .option-btn {
+            min-width: 118px;
+            padding: 12px 17px;
+            border: 1px solid rgba(73,132,255,.7);
+            border-radius: 10px;
+            background: linear-gradient(135deg, rgba(17,48,117,.92), rgba(5,13,42,.96));
+            box-shadow: 0 0 15px rgba(38,100,255,.13);
+            font-size: 13px;
+            color: #fff;
+            cursor: pointer;
+        }
+        .option-btn:active {
+            transform: scale(.97);
+        }
+
+        /* WADAH UTAMA KIRI BAWAH (SPECTRUM + MINI PLAYER) */
+        #music-hud-container {
+            position: absolute;
+            bottom: 15px;
+            left: 15px;
+            display: none;
+            flex-direction: column;
+            gap: 6px;
+            z-index: 25;
+            max-width: 260px;
+        }
+        #main-menu-screen.active ~ #music-hud-container,
+        #main-menu-screen.active #music-hud-container {
+            display: flex;
+        }
+
+        /* MINI MUSIC SPECTRUM EQUALIZER DI ATAS MINI PLAYER */
+        #music-spectrum {
+            display: flex;
+            align-items: flex-end;
+            gap: 3px;
+            height: 24px;
+            padding: 0 8px;
+            background: rgba(3, 9, 32, 0.75);
+            border: 1px solid rgba(73, 132, 255, 0.4);
+            border-radius: 8px;
+            backdrop-filter: blur(4px);
+            overflow: hidden;
+        }
+        .spectrum-bar {
+            flex: 1;
+            background: linear-gradient(to top, #347bff, #b8d2ff);
+            height: 4px;
+            border-radius: 2px;
+            transition: height 0.08s ease;
+        }
+
+        /* MINI MUSIC PLAYER DI POJOK KIRI BAWAH MENU UTAMA */
+        #mini-music-player {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: rgba(3, 9, 32, 0.85);
+            border: 1px solid rgba(73, 132, 255, 0.6);
+            padding: 8px 14px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+            backdrop-filter: blur(4px);
+            width: 100%;
+        }
+        .mini-player-icon {
+            font-size: 1.2rem;
+            animation: pulse 1.5s infinite;
+        }
+        .mini-player-info {
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .mini-player-label {
+            font-size: 9px;
+            color: #8ab4f8;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+        }
+        .mini-player-title {
+            font-size: 11px;
+            color: #eef4ff;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            font-weight: 600;
+        }
+
+        /* TOMBOL TEST VERSION DI POJOK KANAN BAWAH */
+        #test-version-badge {
+            position: absolute;
+            bottom: 15px;
+            right: 15px;
+            background: rgba(142, 36, 170, 0.75);
+            border: 1px solid #d81b60;
+            padding: 8px 14px;
+            border-radius: 10px;
+            font-size: 13px;
+            font-weight: bold;
+            color: #fff;
+            cursor: pointer;
+            z-index: 30;
+            box-shadow: 0 4px 15px rgba(216, 27, 96, 0.4);
+            backdrop-filter: blur(4px);
+            transition: transform 0.2s;
+            display: none;
+        }
+        #main-menu-screen.active ~ #test-version-badge,
+        #main-menu-screen.active #test-version-badge {
+            display: block;
+        }
+        #test-version-badge:active {
+            transform: scale(0.95);
+        }
+
+        @media (max-width: 600px) {
+            #main-menu-screen { padding: 16px 12px; }
+            .episode-card { flex-basis: 68vw; max-width: 240px; }
+            .option-btn { flex: 1 1 28%; min-width: 95px; padding: 12px 7px; }
+            #music-hud-container { bottom: 10px; left: 10px; max-width: 230px; }
+            #test-version-badge { bottom: 10px; right: 10px; font-size: 11px; padding: 6px 10px; }
+        }
+
+        #age-gate-screen { background: linear-gradient(135deg, #09000d 0%, #17042b 50%, #000000 100%); padding: 20px; text-align: center; z-index: 90; }
+        .age-gate-card { background: rgba(18, 10, 32, 0.9); border: 2px solid #8e24aa; border-radius: 18px; padding: 28px 22px; max-width: 580px; width: 92%; box-shadow: 0 0 35px rgba(142, 36, 170, 0.45); display: flex; flex-direction: column; align-items: center; gap: 18px; }
+        .age-gate-title { color: #ff3366; font-size: clamp(1.6rem, 3.5vw, 2.4rem); font-weight: 800; letter-spacing: 2px; text-transform: uppercase; text-shadow: 0 0 12px rgba(255, 51, 102, 0.7); animation: pulse 2s infinite; }
+        .age-gate-body { color: #e0d5f5; font-size: clamp(0.95rem, 2vw, 1.15rem); line-height: 1.6; text-align: center; border-top: 1px solid rgba(142, 36, 170, 0.3); border-bottom: 1px solid rgba(142, 36, 170, 0.3); padding: 14px 8px; margin: 4px 0; }
+        .age-gate-actions { display: flex; flex-direction: column; gap: 12px; width: 100%; max-width: 380px; }
+        .age-btn { padding: 13px 20px; font-size: 1.05rem; font-weight: bold; border-radius: 10px; cursor: pointer; transition: all 0.25s ease; border: none; width: 100%; }
+        .age-btn-allow { background: linear-gradient(135deg, #8e24aa, #d81b60); color: #fff; box-shadow: 0 4px 15px rgba(216, 27, 96, 0.4); }
+        .age-btn-deny { background: rgba(35, 20, 50, 0.8); border: 1px solid #ff4d4d; color: #ff7777; }
+        #underage-lock-screen { background-color: #030005; z-index: 100; cursor: not-allowed; overflow: hidden; position: absolute; inset: 0; }
+        .glitch-wrapper { text-align: center; position: relative; padding: 20px; }
+        .glitch-text { font-size: clamp(2.2rem, 6vw, 4.5rem); font-weight: 900; color: #ff0055; letter-spacing: 4px; text-transform: uppercase; position: relative; display: inline-block; text-shadow: 0 0 15px rgba(255, 0, 85, 0.8); animation: glitch-anim 2.5s infinite linear alternate-reverse; }
+        .glitch-subtext { margin-top: 20px; font-size: clamp(1rem, 2.5vw, 1.5rem); color: #aaa; letter-spacing: 2px; animation: blink 0.8s infinite alternate; }
+        
+        #splash-screen { background-color: rgba(2,7,25,.94); }
+        #splash-img { max-width: min(72vw,420px); max-height: 55vh; object-fit: contain; filter: drop-shadow(0 0 22px #2865ff); transition: opacity 0.8s ease-in-out; opacity: 1; }
+        
+        #warning-screen { background-color: #000; text-align: center; padding: 20px; }
+        .warning-title { color: #ff4d4d; font-size: clamp(2rem, 4vw, 3.5rem); font-weight: bold; margin-bottom: 20px; letter-spacing: 2px; animation: pulse 2s infinite; }
+        .warning-text { color: #fff; font-size: clamp(1.2rem, 2.5vw, 1.8rem); line-height: 1.6; }
+        
+        .panel { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 80%; max-width: 800px; max-height: 85%; background: rgba(15, 15, 25, 0.95); border: 2px solid #6a0dad; border-radius: 12px; padding: 25px; display: none; flex-direction: column; z-index: 20; box-shadow: 0 0 20px rgba(106, 13, 173, 0.5); overflow-y: auto; }
+        .panel.active { display: flex; }
+        .panel-header { font-size: 1.5rem; font-weight: bold; margin-bottom: 20px; text-align: center; color: #d1b3ff; border-bottom: 1px solid #6a0dad; padding-bottom: 10px; }
+        .panel-close { margin-top: 20px; align-self: center; padding: 8px 25px; background: #9b51e0; border: none; color: #fff; border-radius: 6px; cursor: pointer; }
+        .setting-group { margin-bottom: 20px; display: flex; flex-direction: column; gap: 10px; }
+        .setting-group label { font-size: 1.1rem; }
+        .setting-group input[type="range"] { width: 100%; accent-color: #9b51e0; }
+        .grid-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 15px; width: 100%; }
+        .grid-card { background: rgba(255,255,255,0.05); border: 1px solid #444; border-radius: 8px; padding: 15px; text-align: center; cursor: pointer; transition: all 0.2s; }
+        .grid-card:hover { border-color: #9b51e0; background: rgba(155, 81, 224, 0.2); }
+        .grid-card img, .grid-card video { width: 100%; max-height: 120px; object-fit: cover; border-radius: 4px; margin-bottom: 10px; pointer-events: none; }
+        
+        #media-viewer-screen { background: rgba(0,0,0,0.92); z-index: 100; cursor: pointer; }
+        #media-viewer-content { max-width: 95vw; max-height: 95vh; display: flex; justify-content: center; align-items: center; }
+        #media-viewer-content img, #media-viewer-content video { max-width: 100%; max-height: 95vh; object-fit: contain; border-radius: 8px; box-shadow: 0 0 25px rgba(0,0,0,0.8); }
+        
+        #game-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none; isolation: isolate; }
+        #game-screen.active { display: block; }
+        #game-screen::after { content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 1; background: linear-gradient(to top, rgba(0,0,0,.18), transparent 34%); }
+        #sprite-layer { position: absolute; bottom: 0; width: 100%; height: 100%; display: flex; justify-content: space-between; align-items: flex-end; padding: 0; pointer-events: none; z-index: 2; }
+        .sprite-side { display: flex; align-items: flex-end; gap: clamp(0px, 1vw, 14px); height: 100%; width: 45%; min-width: 0; }
+        .sprite-side.left { justify-content: flex-start; }
+        .sprite-side.right { justify-content: flex-end; }
+        .sprite-side.center { justify-content: center; width: 100%; }
+        .sprite-img { height: min(94%, 78vh); max-height: none; width: auto; max-width: min(34vw, 420px); object-fit: contain; object-position: bottom; transition: filter 0.25s ease, transform 0.25s ease; filter: brightness(0.72) drop-shadow(0 8px 14px rgba(0,0,0,.3)); transform: scale(.98); transform-origin: bottom center; }
+        
+        @keyframes sprite-enter-left { from { opacity:0; transform:translateX(-85px) scale(.98); } to { opacity:1; transform:translateX(0) scale(.98); } }
+        @keyframes sprite-enter-right { from { opacity:0; transform:translateX(85px) scaleX(-1) scaleY(.98); } to { opacity:1; transform:translateX(0) scaleX(-1) scaleY(.98); } }
+        @keyframes sprite-enter-center { from { opacity:0; transform:translateY(28px) scale(.96); } to { opacity:1; transform:translateY(0) scale(.98); } }
+        .sprite-img.enter-left { animation:sprite-enter-left .42s cubic-bezier(.2,.75,.25,1) both; }
+        .sprite-img.enter-right { animation:sprite-enter-right .42s cubic-bezier(.2,.75,.25,1) both; }
+        .sprite-img.enter-center { animation:sprite-enter-center .38s ease-out both; }
+        .sprite-img.facing-inward { transform:scaleX(-1) scaleY(.98); }
+        .sprite-img { pointer-events: auto; cursor: pointer; -webkit-user-drag: none; }
+        
+        @keyframes sprite-tap-boing { 0% { transform: translateY(0) scale(1, 1); } 28% { transform: translateY(-30px) scale(.96, 1.06); } 52% { transform: translateY(0) scale(1.08, .92); } 72% { transform: translateY(-9px) scale(.99, 1.02); } 100% { transform: translateY(0) scale(1, 1); } }
+        @keyframes sprite-tap-boing-mirror { 0% { transform: scaleX(-1) translateY(0) scale(1, 1); } 28% { transform: scaleX(-1) translateY(-30px) scale(.96, 1.06); } 52% { transform: scaleX(-1) translateY(0) scale(1.08, .92); } 72% { transform: scaleX(-1) translateY(-9px) scale(.99, 1.02); } 100% { transform: scaleX(-1) translateY(0) scale(1, 1); } }
+        .sprite-img.tap-boing { animation: sprite-tap-boing .58s cubic-bezier(.2,.75,.25,1); }
+        .sprite-img.facing-inward.tap-boing { animation: sprite-tap-boing-mirror .58s cubic-bezier(.2,.75,.25,1); }
+        .sprite-img.active-speaker { filter: brightness(1) drop-shadow(0 8px 18px rgba(0,0,0,.38)); transform: scale(1.035); z-index: 5; }
+        .sprite-img.facing-inward.active-speaker { transform: scaleX(-1) scale(1.035); }
+        .sprite-side.center .sprite-img { max-width: min(42vw, 520px); }
+        
+        #cg-layer { position: absolute; inset: 0; z-index: 3; display: none; align-items: center; justify-content: center; pointer-events: none; background: rgba(0,0,0,.12); }
+        #cg-layer.active { display: flex; }
+        #cg-image { width: 100%; height: 100%; object-fit: contain; object-position: center; }
+        
+        #dialogue-box { position: absolute; bottom: max(18px, env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); width: min(92%, 920px); min-height: clamp(105px, 16vh, 145px); height: auto; padding: clamp(16px, 2.2vh, 22px) clamp(17px, 3vw, 32px) 14px; background: linear-gradient(180deg, #fffefa 0%, #f4efff 100%); color: #30253e; border: 3px solid #30253e; border-radius: 24px; box-shadow: 0 7px 0 rgba(24, 14, 38, .45), 0 12px 28px rgba(0,0,0,.38); cursor: pointer; z-index: 15; transform-origin: 18% 100%; }
+        #dialogue-box::before { content: ""; position: absolute; top: -23px; left: clamp(28px, 10%, 100px); width: 0; height: 0; border-left: 17px solid transparent; border-right: 9px solid transparent; border-bottom: 23px solid #30253e; }
+        #dialogue-box::after { content: ""; position: absolute; top: -16px; left: calc(clamp(28px, 10%, 100px) + 3px); width: 0; height: 0; border-left: 12px solid transparent; border-right: 6px solid transparent; border-bottom: 17px solid #fffefa; }
+        #dialogue-box.bubble-pop { animation: bubblePop .22s ease-out; }
+        @keyframes bubblePop { 0% { opacity: .55; transform: translateX(-50%) scale(.96); } 100% { opacity: 1; transform: translateX(-50%) scale(1); } }
+        #speaker-name { display: inline-block; max-width: 100%; font-size: clamp(.9rem, 1.5vw, 1.15rem); font-weight: 800; color: #fff; background: #8954c8; border: 2px solid #30253e; border-radius: 999px; padding: 4px 14px; margin-bottom: 9px; box-shadow: 2px 3px 0 rgba(48,37,62,.18); }
+        #dialogue-text { font-size: clamp(.98rem, 1.45vw, 1.18rem); line-height: 1.55; color: #30253e; white-space: pre-wrap; overflow-wrap: anywhere; }
+        .dialogue-hint { margin-top: 8px; text-align: right; color: #775d92; font-size: .72rem; font-weight: 700; opacity: .9; }
+        
+        @media (max-width: 700px) {
+            #dialogue-box { width: 94%; min-height: 105px; border-radius: 20px; border-width: 2.5px; padding: 13px 15px 11px; bottom: max(14px, env(safe-area-inset-bottom)); }
+            #dialogue-box::before { top: -19px; border-left-width: 14px; border-right-width: 8px; border-bottom-width: 20px; }
+            #dialogue-box::after { top: -14px; border-left-width: 10px; border-right-width: 5px; border-bottom-width: 15px; }
+            #speaker-name { font-size: .95rem; padding: 3px 11px; margin-bottom: 7px; }
+            #dialogue-text { font-size: clamp(.86rem, 3.2vw, 1rem); line-height: 1.45; }
+            .dialogue-hint { font-size: .67rem; margin-top: 6px; }
+        }
+        @media (orientation: portrait) { #game-container { width: 100vw; height: 100dvh; } }
+        
+        .special-panel { display: none; z-index: 40; width: min(92vw, 520px); max-width: 520px; padding: 24px; gap: 14px; text-align: center; background: rgba(16,12,28,.97); border: 1px solid #a66cff; border-radius: 18px; box-shadow: 0 15px 55px #000b; }
+        .special-panel.active, .log-panel.active { display: flex; }
+        .special-panel p { line-height: 1.5; color: #ded3ef; margin-bottom: 4px; }
+        .special-panel .option-btn { width: 100%; white-space: normal; }
+        .log-panel { display: none; z-index: 50; width: min(92vw, 680px); max-width: 680px; max-height: 82vh; padding: 18px; background: rgba(16,12,28,.98); border: 1px solid #a66cff; border-radius: 16px; }
+        .log-entries { width: 100%; overflow-y: auto; min-height: 100px; max-height: 60vh; text-align: left; }
+        .log-entry { padding: 10px 12px; margin-bottom: 8px; background: rgba(255,255,255,.05); border-left: 3px solid #9b6bdb; border-radius: 7px; }
+        .log-entry strong { display:block; color:#d1b3ff; margin-bottom:4px; }
+        .log-entry p { line-height:1.45; white-space:pre-wrap; overflow-wrap:anywhere; }
+        .log-empty { color:#b9a5d8; padding:18px; text-align:center; }
+        
+        #floating-toggle { position: absolute; top: 15px; right: 15px; width: 45px; height: 45px; background: rgba(106, 13, 173, 0.8); border: 1px solid #9b51e0; border-radius: 50%; color: #fff; font-size: 1.2rem; display: flex; justify-content: center; align-items: center; cursor: pointer; z-index: 30; box-shadow: 0 2px 10px rgba(0,0,0,0.5); }
+        #floating-menu { position: absolute; top: 70px; right: 15px; width: 200px; background: rgba(15, 15, 25, 0.95); border: 2px solid #6a0dad; border-radius: 8px; padding: 10px; display: none; flex-direction: column; gap: 8px; z-index: 30; box-shadow: 0 4px 15px rgba(0,0,0,0.7); }
+        #floating-menu.active { display: flex; }
+        .float-btn { background: rgba(255,255,255,0.05); border: 1px solid #444; color: #fff; padding: 8px; border-radius: 5px; cursor: pointer; font-size: 0.9rem; text-align: center; transition: 0.2s; }
+        .float-btn:hover { background: #6a0dad; border-color: #9b51e0; }
+        .float-btn:disabled { opacity: 0.4; cursor: not-allowed; border-color: #333; }
+        
+        @keyframes sceneShake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-7px)} 40%{transform:translateX(7px)} 60%{transform:translateX(-4px)} 80%{transform:translateX(4px)} }
+        @keyframes sceneFlash { 0%{box-shadow:inset 0 0 0 9999px rgba(255,255,255,0)} 35%{box-shadow:inset 0 0 0 9999px rgba(255,255,255,.55)} 100%{box-shadow:inset 0 0 0 9999px rgba(255,255,255,0)} }
+        @keyframes sceneHeart { 0%{filter:brightness(1)} 35%{filter:brightness(1.18) saturate(1.2)} 100%{filter:brightness(1)} }
+        @keyframes sceneSad { 0%{filter:brightness(1)} 50%{filter:brightness(.72) saturate(.7)} 100%{filter:brightness(1)} }
+        #game-container.fx-shake { animation:sceneShake .52s ease; }
+        #game-container.fx-flash { animation:sceneFlash .8s ease; }
+        #game-container.fx-heart { animation:sceneHeart .9s ease; }
+        #game-container.fx-sad { animation:sceneSad .9s ease; }
+        
+        @keyframes pulse { 50% { opacity: .35; } }
+        @keyframes glitch-anim { 0% { transform: translate(0); text-shadow: -2px 0 #00ffff, 2px 0 #ff0055; } 20% { transform: translate(-3px, 3px); text-shadow: 3px -2px #00ffff, -3px 2px #ff0055; } 40% { transform: translate(-2px, -2px); text-shadow: -1px 2px #00ffff, 2px -1px #ff0055; } 60% { transform: translate(3px, 1px); text-shadow: 2px -1px #00ffff, -2px 1px #ff0055; } 80% { transform: translate(1px, -3px); text-shadow: -2px 1px #00ffff, 1px -2px #ff0055; } 100% { transform: translate(0); text-shadow: 2px 0 #00ffff, -2px 0 #ff0055; } }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <audio id="bgm-player" crossorigin="anonymous" loop></audio>
+    <div id="scene-fade" aria-hidden="true"></div>
+
+    <!-- CANVAS PARTIKEL DI ATAS BACKGROUND MENU -->
+    <canvas id="particle-canvas"></canvas>
+
+    <!-- 0. Age Gate Screen -->
+    <div id="age-gate-screen" class="screen active">
+        <div class="age-gate-card">
+            <div class="age-gate-title">⚠️PERINGATAN INI NOVEL BUKAN GAME⚠️!!</div>
+            <div class="age-gate-body">
+                Dalam Content ini semua karakter adalah fiksi<br>
+                Dan ada adegan yang cukup menegangkan pastikan bahwa kalian sudah siap terlebih dahulu<br><br>
+                Ada adegan dengan CG berdarah<br>
+                <strong>Tidak cocok untuk anak di bawah umur</strong>
+            </div>
+            <div class="age-gate-actions">
+                <button class="age-btn age-btn-allow" onclick="confirmAge(true)">Saya siap</button>
+                <button class="age-btn age-btn-deny" onclick="confirmAge(false)">Saya belum siap</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Underage Lock Glitch Screen -->
+    <div id="underage-lock-screen" class="screen">
+        <div class="glitch-wrapper">
+            <div class="glitch-text" data-text="DILARANG MASUK">DILARANG MASUK</div>
+            <div class="glitch-subtext">AKSES DITOLAK: SIAPKAN MENTAL DULU DAN BUKA KEMBALI NANTI</div>
+        </div>
+    </div>
+
+    <!-- 1. Splash Screen -->
+    <div id="splash-screen" class="screen">
+        <img id="splash-img" src="assets/splash1.png" alt="Splash Screen">
+    </div>
+
+    <!-- 2. Warning Screen (18+) -->
+    <div id="warning-screen" class="screen">
+        <div class="warning-title">!!PERHATIAN!!</div>
+        <div class="warning-text">Jangan Bermain Game Berlebihan<br>Pastikan Untuk Beristirahat Yang Cukup</div>
+    </div>
+
+    <!-- 3. Tap to Play Screen -->
+    <div id="tap-to-play-screen" class="screen" onclick="proceedToMainMenu()">
+        <div class="characters-row">
+            <img src="assets/image/karakter/agilia/agilia_natural.png" onclick="bounceCharacter(this, event)" onerror="this.style.display='none'">
+            <img src="assets/image/karakter/aria/aria_natural.png" onclick="bounceCharacter(this, event)" onerror="this.style.display='none'">
+            <img src="assets/image/karakter/evila/evila_natural.png" onclick="bounceCharacter(this, event)" onerror="this.style.display='none'">
+            <img src="assets/image/karakter/lina/lina_natural.png" onclick="bounceCharacter(this, event)" onerror="this.style.display='none'">
+            <img src="assets/image/karakter/mika/mika_natural.png" onclick="bounceCharacter(this, event)" onerror="this.style.display='none'">
+            <img src="assets/image/karakter/nela/nela_natural.png" onclick="bounceCharacter(this, event)" onerror="this.style.display='none'">
+            <img src="assets/image/karakter/yuvi/yuvi_natural.png" onclick="bounceCharacter(this, event)" onerror="this.style.display='none'">
+        </div>
+        <div class="tap-panel">
+            <h1>AER VN (DEMO)</h1>
+            <p>TAP TO CONTINUE</p>
+        </div>
+    </div>
+
+    <!-- 4. Main Menu Screen -->
+    <div id="main-menu-screen" class="screen">
+        <div class="home-inner">
+            <h1 class="welcome">Maid Harem Story</h1>
+            <div class="sub-title">Pilihan Episode (Demo Version)</div>
+
+            <div class="episode-row">
+                <article class="episode-card" onclick="startEpisode('episode1')">
+                    <img src="assets/icon_epi/epi_1.png" alt="Episode 1">
+                    <button type="button">EPISODE 1</button>
+                </article>
+                <article class="episode-card" onclick="startEpisode('episode2')">
+                    <img src="assets/icon_epi/epi_2.png" alt="Episode 2">
+                    <button type="button">EPISODE 2</button>
+                </article>
+                <article class="episode-card" onclick="startEpisode('episode3')">
+                    <img src="assets/icon_epi/epi_3.png" alt="Episode 3">
+                    <button type="button">EPISODE 3</button>
+                </article>
+            </div>
+
+            <nav class="option-area">
+                <button class="option-btn" onclick="openPanel('load-panel')">Muat Save Data</button>
+                <button class="option-btn" onclick="openPanel('music-panel')">Menu Musik</button>
+                <button class="option-btn" onclick="openPanel('settings-panel')">Pengaturan</button>
+                <button class="option-btn" onclick="openPanel('about-panel')">Tentang</button>
+                <button class="option-btn" onclick="openPanel('bio-panel')">Biodata</button>
+                <button class="option-btn" onclick="exitGame()">Keluar</button>
+            </nav>
+        </div>
+    </div>
+
+    <!-- WADAH KIRI BAWAH: SPECTRUM EQUALIZER + MINI MUSIC PLAYER -->
+    <div id="music-hud-container">
+        <!-- Mini Spectrum Equalizer -->
+        <div id="music-spectrum">
+            <div class="spectrum-bar"></div>
+            <div class="spectrum-bar"></div>
+            <div class="spectrum-bar"></div>
+            <div class="spectrum-bar"></div>
+            <div class="spectrum-bar"></div>
+            <div class="spectrum-bar"></div>
+            <div class="spectrum-bar"></div>
+            <div class="spectrum-bar"></div>
+        </div>
+        <!-- Mini Music Player -->
+        <div id="mini-music-player">
+            <div class="mini-player-icon">🎵</div>
+            <div class="mini-player-info">
+                <span class="mini-player-label">Sekarang di putar</span>
+                <span id="mini-music-title" class="mini-player-title">Tema Menu Utama</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- TOMBOL TEST VERSION DI POJOK KANAN BAWAH -->
+    <div id="test-version-badge" onclick="openTestMessagePanel()">
+        Game versi Test
+    </div>
+
+    <!-- Modals -->
+    <div id="save-panel" class="panel">
+        <div class="panel-header">Simpan Data</div>
+        <div class="grid-container" id="save-slots-container"></div>
+        <button class="panel-close" onclick="closePanel('save-panel')">Tutup</button>
+    </div>
+
+    <div id="load-panel" class="panel">
+        <div class="panel-header">Muat Save Data</div>
+        <div class="grid-container" id="load-slots-container"></div>
+        <button class="panel-close" onclick="closePanel('load-panel')">Tutup</button>
+    </div>
+
+    <div id="settings-panel" class="panel">
+        <div class="panel-header">Pengaturan</div>
+        <div class="setting-group">
+            <label>Volume Musik</label>
+            <input type="range" id="music-volume" min="0" max="1" step="0.05" value="0.7" onchange="updateSettings()">
+        </div>
+        <div class="setting-group">
+            <label>Kecepatan Teks</label>
+            <input type="range" id="text-speed" min="10" max="100" step="5" value="40" onchange="updateSettings()">
+        </div>
+        <button class="panel-close" onclick="closePanel('settings-panel')">Tutup</button>
+    </div>
+
+    <div id="about-panel" class="panel">
+        <div class="panel-header">About Game</div>
+        <p style="text-align: center; line-height: 1.6; margin-bottom: 15px;">
+            Welcome to Aer™ (Demo Version)<br>
+            Game ini dibuat oleh <strong>LuLi-Yi Aer</strong> Dengan penuh cinta dan sepenuh jiwa<br><br>
+            Assets gambar semua milik <strong>Aer™</strong><br>
+            Asset Musik semua milik <strong>MP• Collection™ 🎵</strong>
+        </p>
+        <button class="panel-close" onclick="closePanel('about-panel')">Tutup</button>
+    </div>
+
+    <!-- BIO PANEL (DIUBAH MENJADI TEKS PEMBERITAHUAN) -->
+    <div id="bio-panel" class="panel">
+        <div class="panel-header">Bio Data Karakter</div>
+        <p style="text-align: center; line-height: 1.8; color: #ded3ef; padding: 20px 0;">
+            Fitur Biodata Karakter hanya tersedia di versi rilis penuhnya.<br>Nantikan pembaruannya segera! ✨
+        </p>
+        <button class="panel-close" onclick="closePanel('bio-panel')">Tutup</button>
+    </div>
+
+    <!-- MUSIC PANEL (DIUBAH MENJADI TEKS PEMBERITAHUAN) -->
+    <div id="music-panel" class="panel">
+        <div class="panel-header">Bonus Musik Player</div>
+        <p style="text-align: center; line-height: 1.8; color: #ded3ef; padding: 20px 0;">
+            Menu Bonus Musik Player hanya tersedia di versi rilis penuhnya.<br>Terima kasih telah mencoba versi demonya! 🎵
+        </p>
+        <button class="panel-close" onclick="closePanel('music-panel')">Tutup</button>
+    </div>
+
+    <!-- TEST MESSAGE PANEL (POP-UP PESAN KREATOR) -->
+    <div id="test-message-panel" class="panel special-panel">
+        <div class="panel-header">Pesan Kreator 💡</div>
+        <p style="font-size: 1.1rem; font-weight: bold; color: #d1b3ff; margin-bottom: 8px;">Luli-Yi Aer</p>
+        <p>Saya masih mengembangkan game ini.<br>Mohon menunggu rilis version nya ya!</p>
+        <p style="margin-top: 10px; font-size: 0.95rem; color: #b9a5d8;">
+            Jika ada saran, kalian bisa DM saya di:<br>
+            • Reality: <strong>LuLi-Yi Aer (Yi)</strong><br>
+            • IG baru saya: <strong>@reru_echo.id</strong>
+        </p>
+        <button class="panel-close" style="margin-top: 15px;" onclick="closePanel('test-message-panel')">Tutup</button>
+    </div>
+
+    <!-- 5. In-Game VN Screen -->
+    <div id="game-screen">
+        <div id="floating-toggle" onclick="toggleFloatingMenu()">⚙️</div>
+        <div id="floating-menu">
+            <button class="float-btn" onclick="openPanel('save-panel')">Save</button>
+            <button class="float-btn" onclick="openPanel('load-panel')">Load</button>
+            <button class="float-btn" id="autoplay-btn" onclick="toggleAutoPlay()">▶ Auto: OFF</button>
+            <button class="float-btn" id="skip-btn" onclick="toggleSkip()" disabled>Skip</button>
+            <button class="float-btn" onclick="openLogPanel()">Log Dialog</button>
+            <button class="float-btn" onclick="returnToMainMenu()">Menu Utama</button>
+        </div>
+
+        <div id="sprite-layer">
+            <div id="sprites-left" class="sprite-side left"></div>
+            <div id="sprites-center" class="sprite-side center"></div>
+            <div id="sprites-right" class="sprite-side right"></div>
+        </div>
+        <div id="cg-layer" aria-hidden="true">
+            <img id="cg-image" alt="CG adegan">
+        </div>
+
+        <div id="dialogue-box" onclick="advanceDialogue()">
+            <div id="speaker-name">Nama Karakter</div>
+            <div id="dialogue-text">Teks dialog akan muncul di sini...</div>
+            <div class="dialogue-hint">Ketuk untuk lanjut ▸</div>
+        </div>
+    </div>
+
+    <!-- EPISODE END PANEL (Hanya Kembali ke Menu Utama) -->
+    <div id="episode-end-panel" class="panel special-panel">
+        <div class="panel-header">Episode Selesai ✨</div>
+        <p id="episode-end-message">Kamu telah menyelesaikan episode ini.</p>
+        <button class="option-btn" onclick="returnToMainMenu()">Kembali ke Menu Utama</button>
+    </div>
+
+    <div id="log-panel" class="panel log-panel">
+        <div class="panel-header">Log Percakapan</div>
+        <div id="log-entries" class="log-entries"></div>
+        <button class="panel-close" onclick="closeLogPanel()">Tutup</button>
+    </div>
+</div>
+
+<script src="episode1.js"></script>
+<script src="episode2.js"></script>
+<script src="episode3.js"></script>
+
+<script>
+    const gameState = {
+        currentScreen: 'age-gate-screen',
+        currentEpisode: null,
+        dialogueIndex: 0,
+        completedEpisodes: JSON.parse(localStorage.getItem('completed_episodes') || '[]'),
+        settings: JSON.parse(localStorage.getItem('vn_settings') || '{"musicVol":0.7,"textSpeed":40}'),
+        isTyping: false,
+        typingTimeout: null,
+        isSkipping: false,
+        skipInterval: null,
+        autoPlay: false,
+        autoPlayTimeout: null,
+        conversationLog: [],
+        currentBgm: ''
+    };
+
+    const bgmPlayer = document.getElementById('bgm-player');
+
+    // === SISTEM PARTIKEL CAHAYA DI MENU UTAMA ===
+    const canvas = document.getElementById('particle-canvas');
+    const ctx = canvas.getContext('2d');
+    let particles = [];
+    let particleAnimationId = null;
+
+    function resizeCanvas() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    class Particle {
+        constructor() {
+            this.reset();
+        }
+        reset() {
+            this.x = Math.random() * canvas.width;
+            this.y = Math.random() * canvas.height + canvas.height;
+            this.size = Math.random() * 3.5 + 1;
+            this.speedY = Math.random() * 1.2 + 0.4;
+            this.speedX = (Math.random() - 0.5) * 0.6;
+            this.opacity = Math.random() * 0.7 + 0.3;
+        }
+        update() {
+            this.y -= this.speedY;
+            this.x += this.speedX;
+            this.opacity -= Math.sin(Date.now() * 0.003) * 0.01;
+            if (this.opacity <= 0.1) this.opacity = 0.1;
+            if (this.opacity >= 1) this.opacity = 1;
+
+            if (this.y < -10 || this.x < 0 || this.x > canvas.width) {
+                this.reset();
+            }
+        }
+        draw() {
+            ctx.save();
+            ctx.globalAlpha = this.opacity;
+            ctx.fillStyle = '#8ab4f8';
+            ctx.shadowBlur = 12;
+            ctx.shadowColor = '#347bff';
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        }
+    }
+
+    function initParticles() {
+        particles = [];
+        const numParticles = Math.floor((window.innerWidth * window.innerHeight) / 12000);
+        for (let i = 0; i < Math.max(35, numParticles); i++) {
+            particles.push(new Particle());
+        }
+    }
+
+    function animateParticles() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        particles.forEach(p => {
+            p.update();
+            p.draw();
+        });
+        particleAnimationId = requestAnimationFrame(animateParticles);
+    }
+
+    initParticles();
+    animateParticles();
+    // ===========================================
+
+    // === SPECTRUM EQUALIZER ANIMATION LOOP ===
+    const spectrumBars = document.querySelectorAll('.spectrum-bar');
+    function animateSpectrum() {
+        if (!bgmPlayer.paused && gameState.currentScreen === 'main-menu-screen') {
+            spectrumBars.forEach(bar => {
+                const randomHeight = Math.floor(Math.random() * 18) + 4;
+                bar.style.height = randomHeight + 'px';
+            });
+        } else {
+            spectrumBars.forEach(bar => {
+                bar.style.height = '4px';
+            });
+        }
+        requestAnimationFrame(animateSpectrum);
+    }
+    requestAnimationFrame(animateSpectrum);
+    // ===========================================
+
+    let audioCtx = null;
+    function initAudioContext() {
+        if (!audioCtx) {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (audioCtx.state === 'suspended') {
+            audioCtx.resume();
+        }
+    }
+
+    function playBoingSound() {
+        try {
+            initAudioContext();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            
+            osc.type = 'sine';
+            const now = audioCtx.currentTime;
+            
+            osc.frequency.setValueAtTime(150, now);
+            osc.frequency.exponentialRampToValueAtTime(450, now + 0.15);
+            osc.frequency.exponentialRampToValueAtTime(250, now + 0.35);
+
+            gain.gain.setValueAtTime(0.3, now);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
+
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            osc.start(now);
+            osc.stop(now + 0.35);
+        } catch(e) {
+            console.warn('AudioContext dibatasi browser.', e);
+        }
+    }
+
+    function playTypeSound() {
+        try {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            
+            osc.type = 'triangle';
+            const now = audioCtx.currentTime;
+            
+            osc.frequency.setValueAtTime(600 + Math.random() * 200, now);
+            gain.gain.setValueAtTime(0.04, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
+
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            osc.start(now);
+            osc.stop(now + 0.04);
+        } catch(e) {}
+    }
+
+    window.onload = function() {
+        applySettings();
+    };
+
+    function confirmAge(isAdult) {
+        initAudioContext();
+        triggerFullscreenAndLandscape();
+        if (isAdult) {
+            showScreen('splash-screen');
+            startAutoSplashScreen();
+        } else {
+            showScreen('underage-lock-screen');
+        }
+    }
+
+    function bounceCharacter(element, event) {
+        if (event) event.stopPropagation();
+        playBoingSound();
+        element.classList.remove('char-bounce');
+        void element.offsetWidth;
+        element.classList.add('char-bounce');
+        setTimeout(() => {
+            element.classList.remove('char-bounce');
+        }, 650);
+    }
+
+    async function triggerFullscreenAndLandscape() {
+        try {
+            if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
+                await document.documentElement.requestFullscreen();
+            } else if (!document.fullscreenElement && document.documentElement.webkitRequestFullscreen) {
+                document.documentElement.webkitRequestFullscreen();
+            }
+        } catch (err) { console.info('Fullscreen tidak diizinkan browser.', err); }
+        try {
+            if (screen.orientation && screen.orientation.lock) await screen.orientation.lock('landscape');
+        } catch (err) { console.info('Kunci landscape tidak tersedia.', err); }
+    }
+
+    document.addEventListener('fullscreenchange', () => {
+        if (document.fullscreenElement && screen.orientation && screen.orientation.lock) {
+            screen.orientation.lock('landscape').catch(() => {});
+        }
+    });
+
+    function startAutoSplashScreen() {
+        const splashImg = document.getElementById('splash-img');
+        splashImg.src = 'assets/splash1.png'; 
+        
+        setTimeout(() => {
+            splashImg.style.opacity = 0;
+            setTimeout(() => {
+                splashImg.src = 'assets/splash2.png';
+                splashImg.onerror = function() { showScreen('warning-screen'); proceedToTapScreen(); };
+                splashImg.style.opacity = 1;
+
+                setTimeout(() => {
+                    splashImg.style.opacity = 0;
+                    setTimeout(() => {
+                        showScreen('warning-screen');
+                        proceedToTapScreen();
+                    }, 500);
+                }, 2500);
+
+            }, 500);
+        }, 2500);
+
+        function proceedToTapScreen() {
+            setTimeout(() => {
+                showScreen('tap-to-play-screen');
+            }, 3000);
+        }
+    }
+
+    function proceedToMainMenu() {
+        initAudioContext();
+        triggerFullscreenAndLandscape();
+        showScreen('main-menu-screen');
+        playBGM('assets/music/tema_menu_utama.mp3', 'Tema Menu Utama');
+    }
+
+    function showScreen(screenId) {
+        document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+        document.getElementById(screenId).classList.add('active');
+        gameState.currentScreen = screenId;
+        document.getElementById('floating-menu').classList.remove('active');
+    }
+
+    function openPanel(panelId) {
+        if(panelId === 'about-panel') { playBGM('assets/music/musik_khusus_di_about_game.mp3', 'Musik About Game'); }
+        if(panelId === 'save-panel') renderSlots('save');
+        if(panelId === 'load-panel') renderSlots('load');
+        document.getElementById(panelId).classList.add('active');
+    }
+
+    function closePanel(panelId) { document.getElementById(panelId).classList.remove('active'); }
+
+    function openTestMessagePanel() {
+        document.getElementById('test-message-panel').classList.add('active');
+    }
+
+    function toggleFloatingMenu() { document.getElementById('floating-menu').classList.toggle('active'); }
+
+    function playBGM(src, customTitle = '') {
+        if (!src) return;
+        initAudioContext();
+        const musicAliases = {
+            'assets/music/bgm_school.mp3': 'assets/music/dalam_sekolah.mp3',
+            'assets/music/about_bgm.mp3': 'assets/music/musik_khusus_di_about_game.mp3'
+        };
+        const resolvedSrc = musicAliases[src] || src;
+        
+        let songTitle = customTitle || resolvedSrc.split('/').pop().replace('.mp3', '');
+
+        const titleEl = document.getElementById('mini-music-title');
+        if (titleEl) titleEl.textContent = songTitle;
+
+        if (gameState.currentBgm === resolvedSrc && !bgmPlayer.paused) return;
+        gameState.currentBgm = resolvedSrc;
+        bgmPlayer.src = resolvedSrc;
+        bgmPlayer.volume = gameState.settings.musicVol;
+        bgmPlayer.load();
+        bgmPlayer.play().catch(e => console.warn('BGM belum dapat diputar:', resolvedSrc, e));
+    }
+
+    function updateSettings() {
+        const vol = parseFloat(document.getElementById('music-volume').value);
+        const speed = parseInt(document.getElementById('text-speed').value);
+        gameState.settings.musicVol = vol;
+        gameState.settings.textSpeed = speed;
+        bgmPlayer.volume = vol;
+        localStorage.setItem('vn_settings', JSON.stringify(gameState.settings));
+    }
+
+    function applySettings() {
+        document.getElementById('music-volume').value = gameState.settings.musicVol;
+        document.getElementById('text-speed').value = gameState.settings.textSpeed;
+        bgmPlayer.volume = gameState.settings.musicVol;
+    }
+
+    function startEpisode(epKey) {
+        const cleanKey = String(epKey || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+        const number = cleanKey.replace('episode', '') || '1';
+        const scriptFileName = `episode${number}.js`;
+        const variableName = `EPISODE_${number}`;
+
+        if (window[variableName] && Array.isArray(window[variableName])) {
+            launchEpisodeGame(epKey);
+            return;
+        }
+
+        const existingScript = document.getElementById(`dynamic-${scriptFileName}`);
+        if (existingScript) existingScript.remove();
+
+        const script = document.createElement('script');
+        script.id = `dynamic-${scriptFileName}`;
+        script.src = `${scriptFileName}?v=` + new Date().getTime();
+        
+        script.onload = function() {
+            if (window[variableName] && Array.isArray(window[variableName])) {
+                launchEpisodeGame(epKey);
+            } else {
+                alert(`File ${scriptFileName} termuat, tetapi variabel '${variableName}' tidak ditemukan!`);
+            }
+        };
+        
+        script.onerror = function() {
+            alert(`Gagal memuat file ${scriptFileName}! Pastikan file .js tersebut ada di folder yang sama.`);
+        };
+
+        document.body.appendChild(script);
+    }
+
+    function launchEpisodeGame(epKey) {
+        gameState.currentEpisode = epKey;
+        gameState.dialogueIndex = 0;
+        showScreen('game-screen');
+        
+        const skipBtn = document.getElementById('skip-btn');
+        if (gameState.completedEpisodes.includes(epKey)) { 
+            skipBtn.removeAttribute('disabled'); 
+        } else { 
+            skipBtn.setAttribute('disabled', 'true'); 
+        }
+
+        renderDialogueStep();
+    }
+
+    function getEpisodeData(epKey) {
+        const key = String(epKey || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+        const number = key.replace(/^EPISODE/, '');
+        const candidates = [`EPISODE_${number}`, `EPISODE${number}`, key];
+        for (const candidate of candidates) {
+            if (Array.isArray(window[candidate])) return window[candidate];
+        }
+        if (key === 'EPISODE1' && typeof EPISODE1 !== 'undefined') return EPISODE1;
+        return null;
+    }
+
+    let sceneFadeTimer = null;
+    function changeSceneBackground(src) {
+        const container = document.getElementById('game-container');
+        const fade = document.getElementById('scene-fade');
+        if (!fade || container.dataset.bgSrc === src) return;
+        clearTimeout(sceneFadeTimer);
+        fade.classList.add('active');
+        sceneFadeTimer = setTimeout(() => {
+            const probe = new Image();
+            probe.onload = () => {
+                container.style.backgroundImage = `url("${src}")`;
+                container.dataset.bgSrc = src;
+                requestAnimationFrame(() => fade.classList.remove('active'));
+            };
+            probe.onerror = () => { fade.classList.remove('active'); console.warn('Background tidak ditemukan:', src); };
+            probe.src = src;
+        }, 260);
+    }
+
+    function triggerSceneEffect(effect) {
+        const container = document.getElementById('game-container');
+        if (!container) return;
+        container.classList.remove('fx-shake','fx-flash','fx-heart','fx-sad');
+        void container.offsetWidth;
+        const className = ({shake:'fx-shake', flash:'fx-flash', heart:'fx-heart', sad:'fx-sad'})[effect];
+        if (className) {
+            container.classList.add(className);
+            setTimeout(() => container.classList.remove(className), effect === 'shake' ? 520 : 900);
+        }
+    }
+
+    function renderDialogueStep() {
+        const epData = getEpisodeData(gameState.currentEpisode);
+        if (!Array.isArray(epData) || gameState.dialogueIndex >= epData.length) {
+            finishEpisode(); return;
+        }
+
+        const step = epData[gameState.dialogueIndex];
+
+        if (step.bg) changeSceneBackground(step.bg);
+        if (step.effect) triggerSceneEffect(step.effect);
+        if (step.bgm) playBGM(step.bgm);
+
+        renderCG(step.cg);
+        const dialogueBox = document.getElementById('dialogue-box');
+        dialogueBox.classList.remove('bubble-pop');
+        void dialogueBox.offsetWidth;
+        dialogueBox.classList.add('bubble-pop');
+        document.getElementById('speaker-name').innerText = step.speaker || '';
+        typeWriterEffect(step.text || '');
+        addConversationLog(step.speaker || 'Narasi', step.text || '');
+
+        if (step.cg) { renderSprites([], step.speaker); } 
+        else { renderSprites(step.sprites, step.speaker); }
+    }
+
+    function typeWriterEffect(text) {
+        const target = document.getElementById('dialogue-text');
+        target.innerText = '';
+        gameState.isTyping = true;
+        let i = 0;
+
+        function type() {
+            if (i < text.length) {
+                target.innerText += text.charAt(i);
+                if (i % 2 === 0 && text.charAt(i) !== ' ') {
+                    playTypeSound();
+                }
+                i++;
+                gameState.typingTimeout = setTimeout(type, 101 - gameState.settings.textSpeed);
+            } else {
+                gameState.isTyping = false;
+                scheduleAutoPlay();
+            }
+        }
+        clearTimeout(gameState.typingTimeout);
+        clearTimeout(gameState.autoPlayTimeout);
+        type();
+    }
+
+    function advanceDialogue() {
+        clearTimeout(gameState.autoPlayTimeout);
+        if (gameState.isTyping) {
+            clearTimeout(gameState.typingTimeout);
+            const epData = getEpisodeData(gameState.currentEpisode);
+            if (!Array.isArray(epData) || !epData[gameState.dialogueIndex]) return;
+            document.getElementById('dialogue-text').innerText = epData[gameState.dialogueIndex].text || '';
+            gameState.isTyping = false;
+            return;
+        }
+
+        const epData = getEpisodeData(gameState.currentEpisode);
+        if (!Array.isArray(epData)) return;
+        gameState.dialogueIndex++;
+        if (gameState.dialogueIndex < epData.length) { renderDialogueStep(); } 
+        else { finishEpisode(); }
+    }
+
+    function renderCG(cgConfig) {
+        const layer = document.getElementById('cg-layer');
+        const image = document.getElementById('cg-image');
+        if (!layer || !image) return;
+
+        if (!cgConfig) {
+            layer.classList.remove('active');
+            image.removeAttribute('src'); return;
+        }
+
+        let filename = typeof cgConfig === 'string' ? cgConfig : (cgConfig.file || cgConfig.src || cgConfig.name || '');
+        filename = String(filename).trim();
+        if (!filename) { layer.classList.remove('active'); image.removeAttribute('src'); return; }
+
+        filename = filename.split('/').pop();
+        if (!/\.(png|jpe?g|webp|gif)$/i.test(filename)) filename += '.png';
+
+        const cgAliases = {
+            'agilia_cium_ivan.png': 'cg_agilia_cium_ivan.png',
+            'evila_di_pangkuan_ivan.png': 'cg_evila_di_pangkuan_ivan.png',
+            'ivan_peluk_yuvi_di_kasur.png': 'cg_ivan_peluk_yuvi_di_kasur.png',
+            'ivan_pulang_di_sambut_maid.png': 'cg_ivan_pulang_di_sambut_maid.png'
+        };
+
+        if (cgAliases[filename]) {
+            filename = cgAliases[filename];
+        }
+
+        image.onerror = function () { layer.classList.remove('active'); console.warn('CG tidak ditemukan:', this.src); };
+        image.onload = function () { layer.classList.add('active'); };
+        image.src = `assets/image/CG/${filename}`;
+    }
+
+    const previousSpritePositions = new Map();
+
+    function renderSprites(spritesConfig, activeSpeaker) {
+        const leftBox = document.getElementById('sprites-left');
+        const centerBox = document.getElementById('sprites-center');
+        const rightBox = document.getElementById('sprites-right');
+
+        leftBox.innerHTML = ''; centerBox.innerHTML = ''; rightBox.innerHTML = '';
+        const currentPositions = new Map();
+        if (!spritesConfig) {
+            previousSpritePositions.clear();
+            return;
+        }
+
+        spritesConfig.forEach(s => {
+            const img = document.createElement('img');
+            img.className = 'sprite-img';
+            const character = String(s.char || '').toLowerCase();
+            const expression = String(s.expression || 'natural').toLowerCase();
+            const position = ['left','center','right'].includes(s.position) ? s.position : 'center';
+            const spriteAliases = {
+                budi: { natural: 'budi_netral', netral: 'budi_netral', sedih: 'budi_bersedih', bersedih: 'budi_bersedih', kaget: 'bidi_kaget' },
+                riko: { natural: 'riko_netral', netral: 'riko_netral' },
+                ivan: { natural: 'ivan_natural' },
+                yuvi: { ngantuk: 'yuvu_ngantuk' }
+            };
+            const spriteName = (spriteAliases[character] && spriteAliases[character][expression]) || `${character}_${expression}`;
+            img.src = `assets/image/karakter/${character}/${spriteName}.png`;
+            img.alt = `${character} ${expression}`;
+            img.title = `Ketuk ${character} untuk boing!`;
+            img.setAttribute('role', 'button');
+            img.setAttribute('tabindex', '0');
+            const triggerSpriteBoing = (event) => {
+                if (event) { event.preventDefault(); event.stopPropagation(); }
+                playBoingSound();
+                img.classList.remove('tap-boing');
+                void img.offsetWidth;
+                img.classList.add('tap-boing');
+                window.setTimeout(() => img.classList.remove('tap-boing'), 620);
+            };
+            img.addEventListener('click', triggerSpriteBoing);
+            img.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter' || event.key === ' ') triggerSpriteBoing(event);
+            });
+            img.onerror = function () {
+                if (!this.dataset.fallbackTried && expression !== 'natural') {
+                    this.dataset.fallbackTried = '1';
+                    this.src = `assets/image/karakter/${character}/${character}_natural.png`;
+                } else if (character === 'budi' && !this.dataset.netralTried) {
+                    this.dataset.netralTried = '1';
+                    this.src = 'assets/image/karakter/budi/budi_netral.png';
+                } else {
+                    this.style.display = 'none';
+                }
+            };
+
+            if (position === 'right') img.classList.add('facing-inward');
+
+            const oldPosition = previousSpritePositions.get(character);
+            if (oldPosition && oldPosition !== position) {
+                img.classList.add(position === 'left' ? 'enter-left' : position === 'right' ? 'enter-right' : 'enter-center');
+            } else if (!oldPosition) {
+                img.classList.add(position === 'left' ? 'enter-left' : position === 'right' ? 'enter-right' : 'enter-center');
+            }
+
+            if (activeSpeaker && activeSpeaker.toLowerCase().includes(character)) {
+                img.classList.add('active-speaker');
+            }
+
+            if (position === 'center') centerBox.appendChild(img);
+            else if (position === 'left') leftBox.appendChild(img);
+            else rightBox.appendChild(img);
+
+            currentPositions.set(character, position);
+        });
+
+        previousSpritePositions.clear();
+        currentPositions.forEach((position, character) => previousSpritePositions.set(character, position));
+    }
+
+    function toggleSkip() {
+        if (gameState.isSkipping) { clearInterval(gameState.skipInterval); gameState.isSkipping = false; } 
+        else { gameState.isSkipping = true; gameState.skipInterval = setInterval(() => { advanceDialogue(); }, 100); }
+    }
+
+    function finishEpisode() {
+        if (gameState.isSkipping) toggleSkip();
+        if (!gameState.completedEpisodes.includes(gameState.currentEpisode)) {
+            gameState.completedEpisodes.push(gameState.currentEpisode);
+            localStorage.setItem('completed_episodes', JSON.stringify(gameState.completedEpisodes));
+        }
+        clearTimeout(gameState.autoPlayTimeout);
+        gameState.autoPlay = false;
+        updateAutoPlayButton();
+        const endPanel = document.getElementById('episode-end-panel');
+        const currentNum = Number(String(gameState.currentEpisode || '').replace(/\D/g, '')) || 1;
+        document.getElementById('episode-end-message').textContent = `Episode ${currentNum} telah selesai dibaca.`;
+        endPanel.classList.add('active');
+    }
+
+    function returnToMainMenu() {
+        document.getElementById('episode-end-panel')?.classList.remove('active');
+        document.getElementById('log-panel')?.classList.remove('active');
+        clearTimeout(gameState.autoPlayTimeout);
+        gameState.autoPlay = false;
+        updateAutoPlayButton();
+        showScreen('main-menu-screen');
+        playBGM('assets/music/tema_menu_utama.mp3', 'Tema Menu Utama');
+    }
+
+    function toggleAutoPlay() {
+        gameState.autoPlay = !gameState.autoPlay;
+        updateAutoPlayButton();
+        if (gameState.autoPlay) {
+            if (gameState.isTyping) {
+                clearTimeout(gameState.typingTimeout);
+                const epData = getEpisodeData(gameState.currentEpisode);
+                const step = epData && epData[gameState.dialogueIndex];
+                document.getElementById('dialogue-text').innerText = step?.text || '';
+                gameState.isTyping = false;
+            }
+            scheduleAutoPlay();
+        } else { clearTimeout(gameState.autoPlayTimeout); }
+    }
+
+    function updateAutoPlayButton() {
+        const btn = document.getElementById('autoplay-btn');
+        if (btn) btn.textContent = gameState.autoPlay ? 'Ⅱ Auto: ON' : '▶ Auto: OFF';
+    }
+
+    function scheduleAutoPlay() {
+        clearTimeout(gameState.autoPlayTimeout);
+        if (!gameState.autoPlay || gameState.isTyping || gameState.currentScreen !== 'game-screen') return;
+        gameState.autoPlayTimeout = setTimeout(() => advanceDialogue(), 1700);
+    }
+
+    function addConversationLog(speaker, text) {
+        if (!text) return;
+        const last = gameState.conversationLog[gameState.conversationLog.length - 1];
+        if (!last || last.speaker !== speaker || last.text !== text) {
+            gameState.conversationLog.push({ speaker, text });
+            if (gameState.conversationLog.length > 200) gameState.conversationLog.shift();
+        }
+    }
+
+    function openLogPanel() {
+        const box = document.getElementById('log-entries');
+        box.innerHTML = gameState.conversationLog.map(entry =>
+            `<div class="log-entry"><strong>${escapeHTML(entry.speaker)}</strong><p>${escapeHTML(entry.text)}</p></div>`
+        ).join('') || '<p class="log-empty">Belum ada percakapan.</p>';
+        document.getElementById('log-panel').classList.add('active');
+        box.scrollTop = box.scrollHeight;
+    }
+
+    function closeLogPanel() { document.getElementById('log-panel').classList.remove('active'); }
+
+    function escapeHTML(value) {
+        return String(value).replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+    }
+
+    function renderSlots(type) {
+        const container = document.getElementById(`${type}-slots-container`);
+        container.innerHTML = '';
+        for (let i = 1; i <= 6; i++) {
+            const slotData = localStorage.getItem(`save_slot_${i}`);
+            const card = document.createElement('div');
+            card.className = 'grid-card';
+            if (slotData) {
+                const parsed = JSON.parse(slotData);
+                card.innerHTML = `<h4>Slot ${i}</h4><p style="font-size:0.8rem;">${parsed.ep} - Step ${parsed.step}</p>`;
+                card.onclick = () => {
+                    if (type === 'load') loadGame(parsed);
+                    else saveGame(i);
+                };
+            } else {
+                card.innerHTML = `<h4>Slot ${i}</h4><p style="font-size:0.8rem; color:#666;">Kosong</p>`;
+                if (type === 'save') card.onclick = () => saveGame(i);
+            }
+            container.appendChild(card);
+        }
+    }
+
+    function saveGame(slot) {
+        const data = { ep: gameState.currentEpisode, step: gameState.dialogueIndex };
+        localStorage.setItem(`save_slot_${slot}`, JSON.stringify(data));
+        renderSlots('save');
+    }
+
+    function loadGame(data) {
+        closePanel('load-panel');
+        gameState.currentEpisode = data.ep;
+        gameState.dialogueIndex = data.step;
+        showScreen('game-screen');
+        renderDialogueStep();
+    }
+
+    function exitGame() { window.close(); }
+</script>
+</body>
+</html>
